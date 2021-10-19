@@ -2,23 +2,23 @@
 pragma solidity 0.6.12;
 
 import './interfaces/IRERC20.sol';
+import './interfaces/IWRToken.sol';
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
 contract ReflectTokenExchange {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for IWRToken;
     using SafeERC20 for IRERC20;
     using SafeMath for uint256;
 
     IRERC20 public rToken;
-    IERC20 public wrToken;
+    IWRToken public wrToken;
 
     event Deposit(address indexed user, uint256 lockedAmount, uint256 mintedAmount);
     event Withdraw(address indexed user, uint256 releasedAmount, uint256 burnedAmount);
 
-    constructor(IRERC20 _rToken, IERC20 _wrToken) public {
+    constructor(IRERC20 _rToken, IWRToken _wrToken) public {
         rToken = _rToken;
         wrToken = _wrToken;
     }
@@ -28,8 +28,8 @@ contract ReflectTokenExchange {
     function deposit(uint256 _amount) external {
         if (_amount > 0) {
             uint256 lastStakedBalance = totalDepositedTokenBalance();
-            // rToken.safeTransferFrom(msg.sender, address(this), _amount);
-            rToken.transferFrom(msg.sender, address(this), _amount);
+            rToken.safeTransferFrom(msg.sender, address(this), _amount);
+            // rToken.transferFrom(msg.sender, address(this), _amount);
             uint256 currentStakeBalance = totalDepositedTokenBalance();
             uint256 finalDepositAmount = currentStakeBalance.sub(lastStakedBalance);
 
@@ -40,7 +40,7 @@ contract ReflectTokenExchange {
                 uint256 lastMintedBalance = totalMintedTokenBalance();
                 mintValue = finalDepositAmount.mul(lastMintedBalance).div(lastStakedBalance);
             }
-            wrToken.safeTransfer(msg.sender, mintValue);
+            wrToken.mint(msg.sender, mintValue);
             emit Deposit(msg.sender, finalDepositAmount, mintValue);
         }
     }
@@ -53,9 +53,10 @@ contract ReflectTokenExchange {
             uint256 lastMintedBalance = totalMintedTokenBalance();
 
             wrToken.safeTransferFrom(msg.sender, address(this), _amount);
+            wrToken.burn(_amount);
             uint256 finalWithdrawAmount = _amount.mul(lastStakedBalance).div(lastMintedBalance);
-            // rToken.safeTransfer(msg.sender, finalWithdrawAmount);
-            rToken.transfer(msg.sender, finalWithdrawAmount);
+            rToken.safeTransfer(msg.sender, finalWithdrawAmount);
+            // rToken.transfer(msg.sender, finalWithdrawAmount);
 
             emit Withdraw(msg.sender, finalWithdrawAmount, _amount);
         }
